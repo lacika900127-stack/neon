@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Prototípus - Gemini Style</title>
+    <style>
+        /* Fekete és Neon Narancs Cyberpunk Design */
+        body { font-family: 'Segoe UI', sans-serif; background: #000; color: #fff; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        #chat-window { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; background: #000; padding-bottom: 100px; }
+        
+        .msg { padding: 12px 18px; border-radius: 20px; max-width: 85%; font-size: 16px; line-height: 1.5; }
+        .user { background: #111; align-self: flex-end; border: 1px solid #FF5F1F; color: #FF5F1F; box-shadow: 0 0 10px rgba(255, 95, 31, 0.2); }
+        .ai { background: #050505; align-self: flex-start; color: #fff; border: 1px solid #333; }
+        .ai img { max-width: 100%; border-radius: 10px; margin-top: 10px; border: 1px solid #FF5F1F; }
+
+        /* A GEMINI STÍLUSÚ ALSÓ BEVITELI SÁV */
+        #input-container { position: fixed; bottom: 0; left: 0; right: 0; background: #000; padding: 15px; border-top: 1px solid #222; }
+        
+        #input-bar { background: #111; border: 1px solid #333; border-radius: 30px; display: flex; align-items: center; padding: 5px 15px; gap: 10px; transition: 0.3s; }
+        #input-bar:focus-within { border-color: #FF5F1F; box-shadow: 0 0 10px rgba(255, 95, 31, 0.3); }
+
+        input { flex: 1; background: transparent; border: none; color: white; padding: 12px 5px; outline: none; font-size: 16px; }
+
+        .icon-btn { background: transparent; border: none; color: #888; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; min-width: 35px; }
+        .icon-btn:active { transform: scale(0.9); }
+        .orange-icon { color: #FF5F1F; }
+
+        #voice-btn.active { color: #FF5F1F; animation: pulse 1.5s infinite; text-shadow: 0 0 10px #FF5F1F; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        #file-input { display: none; }
+        .status-dot { font-size: 10px; color: #FF5F1F; text-align: center; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+    <div id="chat-window">
+        <div class="msg ai">Szia! Én vagyok a hibrid AI-od. Írj, küldj fájlt, vagy beszélj hozzám folyamatosan!</div>
+    </div>
+
+    <div id="input-container">
+        <div class="status-dot" id="status">Rendszer Online</div>
+        <div id="input-bar">
+            <label for="file-input" class="icon-btn">＋</label>
+            <input type="file" id="file-input" onchange="handleFileUpload(event)">
+            
+            <input type="text" id="userInput" placeholder="Ask Gemini...">
+            
+            <button id="voice-btn" class="icon-btn" onclick="toggleVoiceMode()">🎤</button>
+            
+            <button id="send-btn" class="icon-btn orange-icon" onclick="handleSend()">➤</button>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = "tpL8o16GcYVgu_gK07Ujqg"; 
+        const chatWindow = document.getElementById('chat-window');
+        const userInput = document.getElementById('userInput');
+        const voiceBtn = document.getElementById('voice-btn');
+        const statusText = document.getElementById('status');
+
+        let isVoiceMode = false;
+
+        // --- HANGFELISMERÉS ÉS FOLYAMATOS MÓD ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+
+        if (recognition) {
+            recognition.lang = 'hu-HU';
+            recognition.onresult = (e) => {
+                const text = e.results[0][0].transcript;
+                addMessage(text, 'user');
+                processAI(text);
+            };
+            recognition.onend = () => {
+                if (isVoiceMode && !window.speechSynthesis.speaking) recognition.start();
+            };
+        }
+
+        function toggleVoiceMode() {
+            isVoiceMode = !isVoiceMode;
+            if (isVoiceMode) {
+                voiceBtn.classList.add('active');
+                statusText.innerText = "Figyelek...";
+                recognition && recognition.start();
+            } else {
+                voiceBtn.classList.remove('active');
+                statusText.innerText = "Rendszer Online";
+                recognition && recognition.stop();
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        // --- FÁJLFELTÖLTÉS FUNKCIÓ ---
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                addMessage(`Fájl feltöltve: ${file.name}`, 'user');
+                // Itt küldhetnéd az AI-nak a fájlt, egyelőre jelezzük a chatben
+                setTimeout(() => addMessage("Látom a fájlt. Miben segíthetek vele kapcsolatban?", "ai"), 1000);
+            }
+        }
+
+        function handleSend() {
+            const text = userInput.value.trim();
+            if (text) {
+                addMessage(text, 'user');
+                userInput.value = '';
+                processAI(text);
+            }
+        }
+
+        userInput.addEventListener("keypress", (e) => { if (e.key === "Enter") handleSend(); });
+
+        // --- AI HORDE KOMMUNIKÁCIÓ (CENZÚRA NÉLKÜL) ---
+        async function processAI(text) {
+            statusText.innerText = "Gondolkodik...";
+            
+            // Képgenerálás kérés
+            if (text.toLowerCase().includes("generálj") && text.toLowerCase().includes("kép")) {
+                generateImage(text);
+                return;
+            }
+
+            try {
+                const response = await fetch('https://aihorde.net/api/v2/generate/text/async', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': API_KEY },
+                    body: JSON.stringify({
+                        prompt: "### Instruction: " + text + "\n### Response:",
+                        params: { max_length: 300, temperature: 0.9 },
+                        models: ["Pygmalion-7b"] // Cenzúrázatlan modell
+                    })
+                });
+                const data = await response.json();
+                pollText(data.id);
+            } catch (e) {
+                addMessage("Kapcsolati hiba.", "ai");
+                checkMicRestart();
+            }
+        }
+
+        async function pollText(id) {
+            const res = await fetch(`https://aihorde.net/api/v2/generate/text/status/${id}`);
+            const data = await res.json();
+            if (data.done) {
+                const reply = data.generations[0].text.trim();
+                addMessage(reply, "ai");
+                speak(reply);
+            } else {
+                setTimeout(() => pollText(id), 2000);
+            }
+        }
+
+        async function generateImage(prompt) {
+            addMessage("Kép generálása...", "ai");
+            try {
+                const res = await fetch('https://aihorde.net/api/v2/generate/async', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': API_KEY },
+                    body: JSON.stringify({ prompt: prompt, params: { width: 512, height: 512 } })
+                });
+                const data = await res.json();
+                pollImage(data.id);
+            } catch (e) { checkMicRestart(); }
+        }
+
+        async function pollImage(id) {
+            const res = await fetch(`https://aihorde.net/api/v2/generate/status/${id}`);
+            const data = await res.json();
+            if (data.done) {
+                const div = document.createElement('div');
+                div.className = 'msg ai';
+                div.innerHTML = `<img src="data:image/webp;base64,${data.generations[0].img}">`;
+                chatWindow.appendChild(div);
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+                checkMicRestart();
+            } else {
+                setTimeout(() => pollImage(id), 3000);
+            }
+        }
+
+        function speak(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'hu-HU';
+            utterance.onstart = () => { if (isVoiceMode) recognition.stop(); };
+            utterance.onend = () => { checkMicRestart(); };
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function checkMicRestart() {
+            if (isVoiceMode) {
+                statusText.innerText = "Figyelek...";
+                try { recognition.start(); } catch(e) {}
+            } else {
+                statusText.innerText = "Rendszer Online";
+            }
+        }
+
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = `msg ${type}`;
+            div.innerText = text;
+            chatWindow.appendChild(div);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+    </script>
+</body>
+</html>
