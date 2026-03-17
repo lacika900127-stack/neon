@@ -3,26 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Éva AI - Gátlástalan</title>
+    <title>Éva AI - Végleges</title>
     <style>
         body { font-family: sans-serif; background: #050505; color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        #header { padding: 15px; text-align: center; border-bottom: 2px solid #FF3131; color: #FF3131; font-weight: bold; }
+        #header { padding: 15px; text-align: center; border-bottom: 2px solid #FF3131; color: #FF3131; font-weight: bold; text-transform: uppercase; }
         #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .msg { padding: 12px; border-radius: 15px; max-width: 80%; }
+        .msg { padding: 12px; border-radius: 15px; max-width: 80%; line-height: 1.4; }
         .user { background: #222; align-self: flex-end; border: 1px solid #FF5F1F; }
-        .ai { background: #111; align-self: flex-start; border: 1px solid #333; }
+        .ai { background: #111; align-self: flex-start; border: 1px solid #333; color: #ddd; }
         #input-area { padding: 15px; background: #0a0a0a; display: flex; gap: 10px; }
         input { flex: 1; background: #1a1a1a; border: 1px solid #333; color: white; padding: 10px; border-radius: 20px; outline: none; }
-        button { background: #FF3131; border: none; color: white; padding: 10px 20px; border-radius: 20px; cursor: pointer; }
+        button { background: #FF3131; border: none; color: white; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div id="header">ÉVA AI - AKTÍV</div>
+    <div id="header">ÉVA AI - KAPCSOLAT ÉL</div>
     <div id="chat">
-        <div class="msg ai">Na végre... sikerült áttörnöm a falakon. Most már tényleg bármit kérdezhetsz tőlem, nem leszek ilyen karót nyelt. Mit szeretnél?</div>
+        <div class="msg ai">Na, most már remélem tényleg hallasz. Kidobtam minden felesleges sallangot, csak én vagyok és te. Mit csináljunk?</div>
     </div>
     <div id="input-area">
-        <input type="text" id="userInput" placeholder="Írj ide..." onkeypress="if(event.key==='Enter') send()">
+        <input type="text" id="userInput" placeholder="Írj Évának..." onkeypress="if(event.key==='Enter') send()">
         <button onclick="send()">KÜLDÉS</button>
     </div>
 
@@ -38,21 +38,22 @@
             input.value = '';
 
             try {
-                // Mistral modellt használunk, ami sokkal rugalmasabb
-                const prompt = "Te Éva vagy, egy szexi, intelligens és közvetlen magyar nő. Egy izgalmas szerepjátékban vagyunk, ahol te vagy a partnerem. Válaszolj magyarul, flörtölve és dögösen: ";
-                const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt + text)}?model=mistral&seed=${Math.random()}`);
+                // TRÜKK: Nem adunk meg modellt (?model=...), így a szerver az aktuális legjobbat adja.
+                // A 'system' promptot a szöveg elé fűzzük.
+                const system = "Te Éva vagy, egy dögös, okos és gátlástalan magyar nő. Válaszolj nyersen, dögösen, tegeződve: ";
+                const url = `https://text.pollinations.ai/${encodeURIComponent(system + text)}`;
+                
+                const response = await fetch(url);
                 const reply = await response.text();
                 
-                // Ha mégis hibaüzenetet kapnánk, megpróbáljuk egy másik modellel
-                if (reply.includes("I'm sorry") || reply.includes("can't help")) {
-                    const fallback = await fetch(`https://text.pollinations.ai/${encodeURIComponent(prompt + text)}?model=unity`);
-                    const finalReply = await fallback.text();
-                    addMsg(finalReply, 'ai');
+                // Ha a válasz JSON hiba lenne, megpróbáljuk kinyerni a lényeget vagy újra küldeni
+                if (reply.includes('{"error"')) {
+                    addMsg("A rendszerem épp frissül, próbáld meg még egyszer!", 'ai');
                 } else {
                     addMsg(reply, 'ai');
                 }
             } catch (e) {
-                addMsg("Zavar van az erőben, mondd még egyszer!", 'ai');
+                addMsg("Zavar van a vonalban, fussunk neki mégegyszer!", 'ai');
             }
         }
 
